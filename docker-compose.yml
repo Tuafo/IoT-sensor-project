@@ -1,0 +1,42 @@
+services:
+  hbase:
+    image: harisekhon/hbase:latest
+    container_name: iot-hbase
+    ports:
+      - "2181:2181"
+      - "8080:8080"
+      - "8085:8085"
+      - "9090:9090"
+      - "16010:16010"
+    volumes:
+      - hbase-data:/hbase-data
+      - hbase-zookeeper-data:/zookeeper-data
+
+  api:
+    build: .
+    container_name: iot-hbase-api
+    depends_on:
+      - hbase
+    environment:
+      HBASE_HOST: hbase
+      HBASE_PORT: "9090"
+    ports:
+      - "8001:8000"
+    command: >
+      sh -c "python scripts/create_tables.py &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: iot-hbase-frontend
+    depends_on:
+      - api
+    environment:
+      VITE_API_BASE_URL: http://localhost:8001
+    ports:
+      - "5174:5174"
+
+volumes:
+  hbase-data:
+  hbase-zookeeper-data:
