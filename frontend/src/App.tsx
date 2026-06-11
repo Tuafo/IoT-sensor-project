@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Activity,
   AlertTriangle,
+  BarChart3,
   Battery,
   CloudSun,
   Database,
@@ -9,17 +10,26 @@ import {
   Globe2,
   Pause,
   Play,
+  Plus,
   RefreshCw,
+  Save,
+  Search,
+  Send,
   Thermometer,
+  Trash2,
   Wind,
 } from "lucide-react";
 import {
   Area,
   AreaChart,
+  Bar,
   CartesianGrid,
+  ComposedChart,
   Line,
   LineChart,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -28,13 +38,55 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8001";
-const JUIZ_DE_FORA = {
-  name: "Juiz de Fora, Minas Gerais",
+const DEFAULT_LOCATION: LocationResult = {
+  id: 3459505,
+  name: "Juiz de Fora",
   latitude: -21.7642,
   longitude: -43.3496,
+  elevation: 678,
+  country: "Brazil",
+  admin1: "Minas Gerais",
+  timezone: "America/Sao_Paulo",
+};
+
+type Sensor = {
+  sensor_id: string;
+  name: string;
+  sensor_type: string;
+  status: string;
+  latitude: number;
+  longitude: number;
+  city: string;
+  country: string;
+  model: string;
+  firmware: string;
+};
+
+type ApiReading = {
+  row_key: string;
+  sensor_id: string;
+  timestamp: string;
+  temperature: number;
+  humidity: number;
+  pressure: number;
+  battery: number;
+  signal_strength: number;
+  alert_level: "ok" | "warning" | "critical";
+  alert_message: string;
+};
+
+type ApiStats = {
+  sensor_id: string | null;
+  total_readings: number;
+  average_temperature: number | null;
+  min_temperature: number | null;
+  max_temperature: number | null;
+  latest_readings: ApiReading[];
 };
 
 type MockReading = {
@@ -45,6 +97,21 @@ type MockReading = {
   battery: number;
   signal: number;
   alert: "ok" | "warning" | "critical";
+};
+
+type LocationResult = {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  elevation?: number;
+  country?: string;
+  admin1?: string;
+  timezone?: string;
+};
+
+type GeocodingResponse = {
+  results?: LocationResult[];
 };
 
 type WeatherResponse = {
@@ -92,11 +159,41 @@ type RealData = {
   elevation: ElevationResponse;
 };
 
+const initialSensor = {
+  sensor_id: "sensor-ui-01",
+  name: "Sensor UI Demo",
+  city: "Juiz de Fora",
+  latitude: "-21.7642",
+  longitude: "-43.3496",
+  status: "active",
+  firmware: "1.0.0",
+};
+
+const initialReading = {
+  sensor_id: "sensor-ui-01",
+  temperature: "26.4",
+  humidity: "57",
+  pressure: "1012.5",
+  battery: "84",
+  signal_strength: "-58",
+  timestamp: "",
+};
+
 function App() {
   const [mockReadings, setMockReadings] = useState<MockReading[]>(() => seedMockReadings());
   const [running, setRunning] = useState(false);
+
+  const [locationQuery, setLocationQuery] = useState("Juiz de Fora");
+  const [locations, setLocations] = useState<LocationResult[]>([DEFAULT_LOCATION]);
+  const [selectedLocation, setSelectedLocation] = useState<LocationResult>(DEFAULT_LOCATION);
   const [realData, setRealData] = useState<RealData | null>(null);
   const [realStatus, setRealStatus] = useState("Dados reais ainda não carregados.");
+
+  const [sensorForm, setSensorForm] = useState(initialSensor);
+  const [readingForm, setReadingForm] = useState(initialReading);
+  const [apiSensorId, setApiSensorId] = useState("sensor-ui-01");
+  const [deleteTimestamp, setDeleteTimestamp] = useState("");
+  const [apiOutput, setApiOutput] = useState("Use os botões para executar operações da API.");
 
   useEffect(() => {
     if (!running) return;
@@ -107,33 +204,94 @@ function App() {
   }, [running]);
 
   useEffect(() => {
-    void loadRealData();
+    void loadRealData(DEFAULT_LOCATION);
   }, []);
 
   const latestMock = mockReadings.at(-1);
   const mockAlerts = mockReadings.filter((reading) => reading.alert !== "ok").length;
   const realChart = useMemo(() => buildRealChart(realData), [realData]);
 
-  async function loadRealData() {
-    setRealStatus("Buscando Weather, Air Quality e Elevation APIs...");
+  async function request<T>(path: string, options?: RequestInit): Promise<T> {
+    const response = await fetch(`${API_BASE}${path}`, {
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      ...options,
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || response.statusText);
+    }
+    return response.json() as Promise<T>;
+  }
+
+  async function runApiOperation<T>(label: string, action: () => Promise<T>) {
+    setApiOutput(`${label}: executando...`);
     try {
-      const lat = JUIZ_DE_FORA.latitude;
-      const lon = JUIZ_DE_FORA.longitude;
+      const result = await action();
+      setApiOutput(JSON.stringify(result, null, 2));
+    } catch (error) {
+      setApiOutput(error instanceof Error ? error.message : `Falha em ${label}.`);
+    }
+  }
+
+  async function searchLocations() {
+    setRealStatus("Buscando cidades disponíveis...");
+    try {
+      const data = await fetchJson<GeocodingResponse>(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationQuery)}&count=10&language=pt&format=json`,
+      );
+      const results = data.results ?? [];
+      setLocations(results);
+      setRealStatus(results.length ? `${results.length} locais encontrados.` : "Nenhum local encontrado.");
+    } catch (error) {
+      setRealStatus(error instanceof Error ? error.message : "Falha ao buscar locais.");
+    }
+  }
+
+  async function loadRealData(location = selectedLocation) {
+    setSelectedLocation(location);
+    setRealStatus(`Buscando dados reais para ${formatLocation(location)}...`);
+    try {
+      const lat = location.latitude;
+      const lon = location.longitude;
+      const timezone = encodeURIComponent(location.timezone ?? "auto");
       const [weather, air, elevation] = await Promise.all([
         fetchJson<WeatherResponse>(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability&forecast_days=1&timezone=America%2FSao_Paulo`,
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability&forecast_days=1&timezone=${timezone}`,
         ),
         fetchJson<AirQualityResponse>(
-          `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,uv_index&hourly=european_aqi,pm10,pm2_5&forecast_days=1&timezone=America%2FSao_Paulo`,
+          `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,ozone,uv_index&hourly=european_aqi,pm10,pm2_5&forecast_days=1&timezone=${timezone}`,
         ),
         fetchJson<ElevationResponse>(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`),
       ]);
       setRealData({ weather, air, elevation });
-      setRealStatus(`Atualizado para ${JUIZ_DE_FORA.name}`);
+      setRealStatus(`Atualizado para ${formatLocation(location)}`);
     } catch (error) {
       setRealStatus(error instanceof Error ? error.message : "Falha ao buscar dados reais.");
     }
   }
+
+  const sensorPayload = {
+    sensor_id: sensorForm.sensor_id,
+    name: sensorForm.name,
+    sensor_type: "environmental",
+    status: sensorForm.status,
+    latitude: Number(sensorForm.latitude),
+    longitude: Number(sensorForm.longitude),
+    city: sensorForm.city,
+    country: "Brazil",
+    model: "ENV-100",
+    firmware: sensorForm.firmware,
+  };
+
+  const readingPayload = {
+    sensor_id: readingForm.sensor_id,
+    temperature: Number(readingForm.temperature),
+    humidity: Number(readingForm.humidity),
+    pressure: Number(readingForm.pressure),
+    battery: Number(readingForm.battery),
+    signal_strength: Number(readingForm.signal_strength),
+    timestamp: readingForm.timestamp || undefined,
+  };
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,hsl(190_95%_13%),transparent_34%),var(--color-background)]">
@@ -146,17 +304,17 @@ function App() {
             </div>
             <h1 className="mt-1 text-2xl font-semibold tracking-normal text-foreground">Monitoramento Ambiental IoT</h1>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">API local: {API_BASE}</Badge>
-          </div>
+          <Badge variant="outline">API local: {API_BASE}</Badge>
         </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
         <Tabs defaultValue="mock">
-          <TabsList>
+          <TabsList className="flex h-auto flex-wrap justify-start">
             <TabsTrigger value="mock">Mock data</TabsTrigger>
             <TabsTrigger value="real">Dados reais</TabsTrigger>
+            <TabsTrigger value="entry">Entrada/API</TabsTrigger>
+            <TabsTrigger value="charts">Gráficos</TabsTrigger>
           </TabsList>
 
           <TabsContent value="mock">
@@ -167,7 +325,7 @@ function App() {
               <Metric title="Alertas" value={mockAlerts.toString()} icon={<AlertTriangle />} />
             </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
+            <div className="mt-4 grid gap-4 lg:grid-cols-[1.35fr_0.85fr]">
               <Card>
                 <CardHeader className="flex-row items-start justify-between gap-4">
                   <div>
@@ -185,7 +343,7 @@ function App() {
                       <CartesianGrid stroke="hsl(218 28% 22%)" strokeDasharray="3 3" />
                       <XAxis dataKey="time" stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
                       <YAxis stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
-                      <Tooltip contentStyle={{ background: "hsl(222 38% 9%)", border: "1px solid hsl(218 28% 22%)" }} />
+                      <Tooltip contentStyle={tooltipStyle} />
                       <Line type="monotone" dataKey="temperature" stroke="hsl(190 95% 48%)" strokeWidth={2} dot={false} />
                       <Line type="monotone" dataKey="humidity" stroke="hsl(166 76% 58%)" strokeWidth={2} dot={false} />
                       <Line type="monotone" dataKey="battery" stroke="hsl(43 92% 58%)" strokeWidth={2} dot={false} />
@@ -220,17 +378,42 @@ function App() {
 
           <TabsContent value="real">
             <div className="grid gap-4 lg:grid-cols-4">
-              <Metric
-                title="Juiz de Fora"
-                value={`${realData?.weather.current.temperature_2m?.toFixed(1) ?? "-"} C`}
-                icon={<Thermometer />}
-              />
+              <Metric title={selectedLocation.name} value={`${realData?.weather.current.temperature_2m?.toFixed(1) ?? "-"} C`} icon={<Thermometer />} />
               <Metric title="Umidade" value={`${realData?.weather.current.relative_humidity_2m ?? "-"}%`} icon={<CloudSun />} />
               <Metric title="AQI europeu" value={`${realData?.air.current.european_aqi ?? "-"}`} icon={<Wind />} />
               <Metric title="Altitude" value={`${realData?.elevation.elevation?.[0] ?? "-"} m`} icon={<Gauge />} />
             </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
+            <div className="mt-4 grid gap-4 lg:grid-cols-[360px_1fr]">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Buscar local</CardTitle>
+                  <CardDescription>Use Open-Meteo Geocoding para acessar os locais disponíveis.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex gap-2">
+                    <Input value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} />
+                    <Button size="icon" onClick={() => void searchLocations()}>
+                      <Search />
+                    </Button>
+                  </div>
+                  <div className="max-h-[310px] space-y-2 overflow-auto pr-1">
+                    {locations.map((location) => (
+                      <button
+                        key={`${location.id}-${location.latitude}-${location.longitude}`}
+                        className="w-full rounded-md border bg-background/40 p-3 text-left transition-colors hover:bg-muted"
+                        onClick={() => void loadRealData(location)}
+                      >
+                        <div className="text-sm font-medium">{formatLocation(location)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader className="flex-row items-start justify-between gap-4">
                   <div>
@@ -242,39 +425,18 @@ function App() {
                     Atualizar
                   </Button>
                 </CardHeader>
-                <CardContent className="h-[360px]">
+                <CardContent className="h-[390px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={realChart}>
+                    <ComposedChart data={realChart}>
                       <CartesianGrid stroke="hsl(218 28% 22%)" strokeDasharray="3 3" />
                       <XAxis dataKey="time" stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
                       <YAxis stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
-                      <Tooltip contentStyle={{ background: "hsl(222 38% 9%)", border: "1px solid hsl(218 28% 22%)" }} />
-                      <Area type="monotone" dataKey="temperature" stroke="hsl(190 95% 48%)" fill="hsl(190 95% 48% / 0.18)" />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Bar dataKey="rain" fill="hsl(217 91% 60% / 0.35)" />
                       <Area type="monotone" dataKey="pm25" stroke="hsl(43 92% 58%)" fill="hsl(43 92% 58% / 0.14)" />
-                    </AreaChart>
+                      <Line type="monotone" dataKey="temperature" stroke="hsl(190 95% 48%)" strokeWidth={2} dot={false} />
+                    </ComposedChart>
                   </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>APIs gratuitas usadas</CardTitle>
-                  <CardDescription>Fontes sem chave para uso acadêmico e não comercial.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <SourceItem
-                    title="Open-Meteo Forecast"
-                    body="Temperatura, umidade, pressão, vento e previsão horária."
-                  />
-                  <SourceItem
-                    title="Open-Meteo Air Quality"
-                    body="AQI europeu, PM10, PM2.5, CO, NO2, O3 e índice UV."
-                  />
-                  <SourceItem title="Open-Meteo Elevation" body="Altitude baseada no Copernicus DEM." />
-                  <SourceItem
-                    title="Open-Meteo Geocoding"
-                    body="Pode ser usado para buscar coordenadas por nome da cidade."
-                  />
                 </CardContent>
               </Card>
             </div>
@@ -288,11 +450,178 @@ function App() {
               <InfoCard title="UV" value={`${realData?.air.current.uv_index ?? "-"}`} />
             </div>
           </TabsContent>
+
+          <TabsContent value="entry">
+            <div className="grid gap-4 lg:grid-cols-[420px_1fr]">
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Entrada de sensor</CardTitle>
+                    <CardDescription>CRUD completo da tabela `sensors`.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Field label="Sensor ID" value={sensorForm.sensor_id} onChange={(value) => updateSensorForm("sensor_id", value)} />
+                    <Field label="Nome" value={sensorForm.name} onChange={(value) => updateSensorForm("name", value)} />
+                    <Field label="Cidade" value={sensorForm.city} onChange={(value) => updateSensorForm("city", value)} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="Latitude" value={sensorForm.latitude} onChange={(value) => updateSensorForm("latitude", value)} />
+                      <Field label="Longitude" value={sensorForm.longitude} onChange={(value) => updateSensorForm("longitude", value)} />
+                      <Field label="Status" value={sensorForm.status} onChange={(value) => updateSensorForm("status", value)} />
+                      <Field label="Firmware" value={sensorForm.firmware} onChange={(value) => updateSensorForm("firmware", value)} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button onClick={() => void runApiOperation("POST /sensors", () => request<Sensor>("/sensors", { method: "POST", body: JSON.stringify(sensorPayload) }))}>
+                        <Plus />
+                        Criar
+                      </Button>
+                      <Button variant="outline" onClick={() => void runApiOperation("PATCH /sensors/{id}", () => request<Sensor>(`/sensors/${sensorForm.sensor_id}`, { method: "PATCH", body: JSON.stringify({ status: sensorForm.status, firmware: sensorForm.firmware }) }))}>
+                        <Save />
+                        Atualizar
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button variant="outline" onClick={() => void runApiOperation("GET /sensors", () => request<Sensor[]>("/sensors"))}>Listar sensores</Button>
+                      <Button variant="outline" onClick={() => void runApiOperation("GET /sensors/{id}", () => request<Sensor>(`/sensors/${sensorForm.sensor_id}`))}>Buscar</Button>
+                      <Button variant="destructive" onClick={() => void runApiOperation("DELETE /sensors/{id}", () => request(`/sensors/${sensorForm.sensor_id}`, { method: "DELETE" }))}>
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Entrada de leitura</CardTitle>
+                    <CardDescription>Operações da tabela `sensor_readings`.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Field label="Sensor ID" value={readingForm.sensor_id} onChange={(value) => updateReadingForm("sensor_id", value)} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="Temperatura" value={readingForm.temperature} onChange={(value) => updateReadingForm("temperature", value)} />
+                      <Field label="Umidade" value={readingForm.humidity} onChange={(value) => updateReadingForm("humidity", value)} />
+                      <Field label="Pressão" value={readingForm.pressure} onChange={(value) => updateReadingForm("pressure", value)} />
+                      <Field label="Bateria" value={readingForm.battery} onChange={(value) => updateReadingForm("battery", value)} />
+                    </div>
+                    <Field label="Sinal" value={readingForm.signal_strength} onChange={(value) => updateReadingForm("signal_strength", value)} />
+                    <Field label="Timestamp opcional" value={readingForm.timestamp} onChange={(value) => updateReadingForm("timestamp", value)} />
+                    <Button className="w-full" onClick={() => void runApiOperation("POST /readings", () => request<ApiReading>("/readings", { method: "POST", body: JSON.stringify(readingPayload) }))}>
+                      <Send />
+                      Inserir leitura
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Operações disponíveis na API</CardTitle>
+                    <CardDescription>Todos os endpoints principais podem ser executados pela interface.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <Field label="Sensor para consultas" value={apiSensorId} onChange={setApiSensorId} />
+                      <Field label="Timestamp para deletar leitura" value={deleteTimestamp} onChange={setDeleteTimestamp} />
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <Button variant="outline" onClick={() => void runApiOperation("GET /readings/{sensor_id}", () => request<ApiReading[]>(`/readings/${apiSensorId}`))}>Listar leituras</Button>
+                      <Button variant="outline" onClick={() => void runApiOperation("GET /readings/{sensor_id}/latest", () => request<ApiReading>(`/readings/${apiSensorId}/latest`))}>Última leitura</Button>
+                      <Button variant="outline" onClick={() => void runApiOperation("GET /alerts", () => request<ApiReading[]>("/alerts"))}>Alertas</Button>
+                      <Button variant="outline" onClick={() => void runApiOperation("GET /stats", () => request<ApiStats>("/stats"))}>Stats gerais</Button>
+                      <Button variant="outline" onClick={() => void runApiOperation("GET /stats?sensor_id=", () => request<ApiStats>(`/stats?sensor_id=${apiSensorId}`))}>Stats sensor</Button>
+                      <Button variant="destructive" onClick={() => void runApiOperation("DELETE /readings/{sensor_id}", () => request(`/readings/${apiSensorId}`, { method: "DELETE", body: JSON.stringify({ timestamp: deleteTimestamp }) }))}>Deletar leitura</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Resposta da API</CardTitle>
+                    <CardDescription>Resultado bruto para apresentar as operações CRUD.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <pre className="max-h-[560px] overflow-auto rounded-md border bg-black/40 p-4 text-xs text-emerald-100">
+                      {apiOutput}
+                    </pre>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="charts">
+            <div className="grid gap-4 lg:grid-cols-3">
+              <ChartNote title="Linha temporal" body="Melhor para tendências contínuas de temperatura, umidade, pressão e bateria ao longo do tempo." />
+              <ChartNote title="Composto" body="Combina barras, áreas e linhas para comparar variáveis com unidades diferentes, como chuva, PM2.5 e temperatura." />
+              <ChartNote title="Dispersão" body="Ajuda a observar correlação, por exemplo temperatura contra umidade, e destacar pontos anômalos." />
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Área: pressão e bateria</CardTitle>
+                  <CardDescription>Útil para comparar estabilidade operacional do sensor.</CardDescription>
+                </CardHeader>
+                <CardContent className="h-[320px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={mockReadings}>
+                      <CartesianGrid stroke="hsl(218 28% 22%)" strokeDasharray="3 3" />
+                      <XAxis dataKey="time" stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
+                      <YAxis stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Area type="monotone" dataKey="battery" stroke="hsl(43 92% 58%)" fill="hsl(43 92% 58% / 0.16)" />
+                      <Area type="monotone" dataKey="pressure" stroke="hsl(190 95% 48%)" fill="hsl(190 95% 48% / 0.10)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Dispersão: temperatura x umidade</CardTitle>
+                  <CardDescription>Ajuda a visualizar relação entre variáveis ambientais.</CardDescription>
+                </CardHeader>
+                <CardContent className="h-[320px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ScatterChart>
+                      <CartesianGrid stroke="hsl(218 28% 22%)" strokeDasharray="3 3" />
+                      <XAxis dataKey="temperature" name="Temperatura" stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
+                      <YAxis dataKey="humidity" name="Umidade" stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Scatter data={mockReadings} fill="hsl(166 76% 58%)" />
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
       </section>
     </main>
   );
+
+  function updateSensorForm(key: keyof typeof initialSensor, value: string) {
+    setSensorForm((current) => ({ ...current, [key]: value }));
+    if (key === "sensor_id") {
+      setApiSensorId(value);
+      setReadingForm((current) => ({ ...current, sensor_id: value }));
+    }
+  }
+
+  function updateReadingForm(key: keyof typeof initialReading, value: string) {
+    setReadingForm((current) => ({ ...current, [key]: value }));
+    if (key === "sensor_id") {
+      setApiSensorId(value);
+    }
+    if (key === "timestamp") {
+      setDeleteTimestamp(value);
+    }
+  }
 }
+
+const tooltipStyle = {
+  background: "hsl(222 38% 9%)",
+  border: "1px solid hsl(218 28% 22%)",
+  color: "hsl(210 40% 96%)",
+};
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);
@@ -350,6 +679,15 @@ function Metric({ title, value, icon }: { title: string; value: string; icon: Re
   );
 }
 
+function Field({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <Input value={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  );
+}
+
 function InfoCard({ title, value }: { title: string; value: string }) {
   return (
     <Card>
@@ -361,15 +699,17 @@ function InfoCard({ title, value }: { title: string; value: string }) {
   );
 }
 
-function SourceItem({ title, body }: { title: string; body: string }) {
+function ChartNote({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-md border bg-background/40 p-3">
-      <div className="flex items-center gap-2 font-medium">
-        <Globe2 className="size-4 text-primary" />
-        {title}
-      </div>
-      <p className="mt-1 text-muted-foreground">{body}</p>
-    </div>
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 font-medium">
+          <BarChart3 className="size-4 text-primary" />
+          {title}
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">{body}</p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -377,6 +717,10 @@ function AlertBadge({ level }: { level: MockReading["alert"] }) {
   if (level === "critical") return <Badge variant="destructive">critical</Badge>;
   if (level === "warning") return <Badge variant="warning">warning</Badge>;
   return <Badge variant="ok">ok</Badge>;
+}
+
+function formatLocation(location: LocationResult) {
+  return [location.name, location.admin1, location.country].filter(Boolean).join(", ");
 }
 
 function random(min: number, max: number) {

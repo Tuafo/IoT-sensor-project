@@ -28,7 +28,7 @@ Depois acesse:
 - Documentação da API: `http://localhost:8001/docs`
 - Interface do HBase: `http://localhost:16010`
 
-A interface web concentra a demonstração principal. Ela possui uma aba com dados mockados, botão de atualização contínua e gráficos, além de uma aba com dados reais agregados para Juiz de Fora, Minas Gerais.
+A interface web concentra a demonstração principal. Ela possui uma aba com dados mockados, botão de atualização contínua e gráficos; uma aba com dados reais agregados por cidade; uma aba para entrada de dados e execução das operações da API; e uma aba com tipos de gráficos úteis para monitoramento ambiental.
 
 Para parar o ambiente:
 
@@ -49,10 +49,12 @@ docker compose down -v
 3. Clique em “Rodar contínuo” para iniciar atualizações simuladas.
 4. Observe os gráficos de temperatura, umidade e bateria.
 5. Abra a aba “Dados reais”.
-6. Clique em “Atualizar” para buscar dados atuais de Juiz de Fora, Minas Gerais.
-7. Confira os cards de clima, qualidade do ar, altitude e os gráficos agregados.
+6. Busque uma cidade pelo campo de pesquisa. A busca usa a Open-Meteo Geocoding API.
+7. Selecione um local retornado e clique em “Atualizar” para buscar clima, qualidade do ar e altitude.
+8. Abra a aba “Entrada/API” para criar, listar, buscar, atualizar e excluir sensores, além de inserir, consultar e excluir leituras.
+9. Abra a aba “Gráficos” para ver opções de visualização adequadas para dados ambientais.
 
-Esse fluxo cobre a ideia de sensores IoT, séries temporais, alertas, estatísticas e integração com fontes externas de dados. A API local continua disponível em `http://localhost:8001/docs` para demonstrar o CRUD completo de sensores e leituras persistidas no HBase.
+Esse fluxo cobre a ideia de sensores IoT, séries temporais, alertas, estatísticas, operações CRUD e integração com fontes externas de dados. A API local continua disponível em `http://localhost:8001/docs` para inspeção técnica dos endpoints.
 
 ## O Que é o HBase?
 
@@ -169,9 +171,38 @@ A aba “Dados reais” usa APIs gratuitas da Open-Meteo:
 - Weather Forecast API: temperatura, umidade, pressão, vento e previsão horária.
 - Air Quality API: AQI europeu, PM10, PM2.5, CO, NO2, O3 e índice UV.
 - Elevation API: altitude do ponto consultado.
-- Geocoding API: pode ser usada para transformar nomes de cidades em latitude e longitude.
+- Geocoding API: transforma nomes de cidades em latitude, longitude, país, estado e fuso horário.
 
-No projeto, a cidade usada como exemplo é Juiz de Fora, Minas Gerais, com coordenadas aproximadas `-21.7642, -43.3496`.
+A cidade inicial é Juiz de Fora, Minas Gerais, mas a interface permite pesquisar e selecionar outros locais disponíveis na Geocoding API.
+
+## Operações Disponíveis Pela Interface
+
+A aba “Entrada/API” permite executar as principais operações disponíveis no backend:
+
+- Criar sensor: `POST /sensors`
+- Listar sensores: `GET /sensors`
+- Buscar sensor: `GET /sensors/{sensor_id}`
+- Atualizar sensor: `PATCH /sensors/{sensor_id}`
+- Excluir sensor: `DELETE /sensors/{sensor_id}`
+- Inserir leitura: `POST /readings`
+- Listar leituras por sensor: `GET /readings/{sensor_id}`
+- Buscar última leitura: `GET /readings/{sensor_id}/latest`
+- Excluir leitura: `DELETE /readings/{sensor_id}`
+- Listar alertas: `GET /alerts`
+- Consultar estatísticas gerais ou por sensor: `GET /stats`
+
+As respostas aparecem em formato JSON na própria interface, o que facilita a apresentação do comportamento da API e da persistência no HBase.
+
+## Tipos de Gráficos Usados
+
+Para dados ambientais e séries temporais de sensores, a interface usa:
+
+- Gráfico de linhas: bom para tendências contínuas, como temperatura, umidade, bateria e pressão ao longo do tempo.
+- Gráfico de área: útil para destacar volume, intensidade ou variação acumulada de uma métrica.
+- Gráfico composto: combina barras, linhas e áreas, permitindo comparar variáveis diferentes, como chuva, temperatura e material particulado.
+- Gráfico de dispersão: útil para observar correlação entre variáveis, por exemplo temperatura versus umidade.
+
+Essas escolhas seguem práticas comuns de visualização de séries temporais e dados ambientais: linhas para tendências, áreas para intensidade, gráficos compostos para múltiplas grandezas e dispersão para correlação/anomalias.
 
 ## Equivalentes do HBase Para Operações Parecidas com MongoDB
 
