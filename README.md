@@ -1,22 +1,34 @@
 # Monitoramento Ambiental IoT com Apache HBase
 
-Projeto acadêmico de NoSQL que usa o Apache HBase como banco de dados principal para um sistema de monitoramento ambiental com sensores IoT. A aplicação possui backend em FastAPI, banco HBase em Docker, simulador de leituras e uma interface React com shadcn/ui em tema escuro para demonstrar sensores, séries temporais, alertas, estatísticas, gráficos e dados reais de clima.
+Este projeto é uma aplicação acadêmica de banco de dados NoSQL usando **Apache HBase** como banco principal. A ideia é simular um sistema de monitoramento ambiental com sensores IoT, onde cada sensor envia leituras de temperatura, umidade, pressão, bateria e sinal.
 
-## Objetivo
+A aplicação possui:
 
-O objetivo do projeto é demonstrar como o HBase pode ser usado em um cenário de IoT e séries temporais. Sensores ambientais enviam leituras com temperatura, umidade, pressão, bateria, intensidade do sinal e horário da medição. Cada leitura é gravada no HBase e pode gerar alertas automaticamente.
+- Banco Apache HBase executando em Docker.
+- Backend FastAPI com operações CRUD.
+- Frontend em Next.js com dashboard web.
+- Interface para criar, listar, buscar, atualizar e excluir sensores.
+- Interface para inserir, consultar e excluir leituras.
+- Alertas automáticos para temperatura alta, umidade baixa e bateria baixa.
+- Estatísticas agregadas das leituras.
+- Visualização com dados reais da Open-Meteo.
+- Stress test pela própria interface.
 
-## Tecnologias
+## Tecnologias Utilizadas
 
-- Apache HBase como banco de dados NoSQL principal.
-- HBase Thrift para comunicação com a API.
-- Python FastAPI no backend.
-- React, Vite, Tailwind CSS e shadcn/ui na interface.
-- Docker Compose para executar todo o ambiente localmente.
+- **Apache HBase**: banco NoSQL principal.
+- **HBase Thrift**: comunicação entre Python e HBase.
+- **happybase**: cliente Python para acessar o HBase via Thrift.
+- **FastAPI**: API do backend.
+- **Next.js**: frontend da aplicação.
+- **React**: construção da interface.
+- **Tailwind CSS** e componentes estilo shadcn/ui: visual do dashboard.
+- **Recharts**: visualizações de dados.
+- **Docker Compose**: execução do ambiente completo.
 
-## Como Executar
+## Como Rodar o Projeto
 
-Com o Docker Desktop aberto, execute:
+Com o Docker Desktop aberto, rode na raiz do projeto:
 
 ```bash
 docker compose up --build
@@ -24,19 +36,17 @@ docker compose up --build
 
 Depois acesse:
 
-- Interface do sistema: `http://localhost:5174`
-- Documentação da API: `http://localhost:8001/docs`
-- Interface do HBase: `http://localhost:16010`
+- Interface web: <http://localhost:5174>
+- Documentação da API: <http://localhost:8001/docs>
+- Interface do HBase: <http://localhost:16010>
 
-A interface web concentra a demonstração principal. Ela possui uma aba com dados mockados, botão de atualização contínua e gráficos; uma aba com dados reais agregados por cidade; uma aba para entrada de dados e execução das operações da API; e uma aba com tipos de gráficos úteis para monitoramento ambiental.
-
-Para parar o ambiente:
+Para parar os containers:
 
 ```bash
 docker compose down
 ```
 
-Para apagar também os dados gravados no HBase:
+Para parar e apagar os volumes do HBase:
 
 ```bash
 docker compose down -v
@@ -44,45 +54,139 @@ docker compose down -v
 
 ## Como Usar a Interface
 
-1. Abra `http://localhost:5174`.
-2. Abra a aba “Mock data”.
-3. Clique em “Rodar contínuo” para iniciar atualizações simuladas.
-4. Observe os gráficos de temperatura, umidade e bateria.
-5. Abra a aba “Dados reais”.
-6. Busque uma cidade pelo campo de pesquisa. A busca usa a Open-Meteo Geocoding API.
-7. Selecione um local retornado e clique em “Atualizar” para buscar clima, qualidade do ar e altitude.
-8. Abra a aba “Entrada/API” para criar, listar, buscar, atualizar e excluir sensores, além de inserir, consultar e excluir leituras.
-9. Abra a aba “Gráficos” para ver opções de visualização adequadas para dados ambientais.
+A interface principal roda em <http://localhost:5174>.
 
-Esse fluxo cobre a ideia de sensores IoT, séries temporais, alertas, estatísticas, operações CRUD e integração com fontes externas de dados. A API local continua disponível em `http://localhost:8001/docs` para inspeção técnica dos endpoints.
+### Aba Trabalho
 
-## O Que é o HBase?
+Funciona como o painel principal de explicação do trabalho:
 
-Apache HBase é um banco de dados NoSQL distribuído, inspirado no Google Bigtable. Ele é classificado como um banco do tipo wide-column, ou seja, os dados são organizados em tabelas, chaves de linha, famílias de colunas, qualificadores de coluna, timestamps e valores.
+- Banco escolhido.
+- Tipo NoSQL.
+- Classificação CAP.
+- O que é o HBase.
+- Para que o HBase é usado.
+- Como o HBase foi usado neste projeto.
+- Modelo de dados.
+- Diagrama de arquitetura.
+- Estrutura das tabelas no HBase.
+- Operações equivalentes aos operadores pedidos no enunciado.
 
-Diferente de um banco relacional, o HBase não exige que todas as linhas tenham as mesmas colunas. Isso o torna adequado para dados esparsos e grandes volumes de informação. Ele também é otimizado para leitura e escrita rápidas por chave, desde que o modelo de chaves seja bem planejado.
+### Aba Dados reais
+
+Usa APIs gratuitas da Open-Meteo para buscar dados reais de clima, qualidade do ar e altitude.
+
+É possível pesquisar uma cidade, selecionar um local e carregar:
+
+- Temperatura.
+- Umidade.
+- Pressão.
+- Vento.
+- AQI europeu.
+- PM2.5.
+- PM10.
+- Ozônio.
+- Índice UV.
+- Altitude.
+
+Esses dados são usados para complementar a visualização, mas o banco principal do trabalho continua sendo o HBase local.
+
+### Aba Entrada/API
+
+Essa aba concentra as operações da API.
+
+Operações de sensores:
+
+- Criar sensor.
+- Listar sensores.
+- Buscar sensor por ID.
+- Atualizar sensor.
+- Excluir sensor.
+
+Operações de leituras:
+
+- Inserir leitura.
+- Listar leituras de um sensor.
+- Buscar última leitura.
+- Excluir leitura por timestamp.
+- Listar alertas.
+- Consultar estatísticas gerais.
+- Consultar estatísticas por sensor.
+- Verificar o health check da API.
+
+As respostas aparecem em JSON na própria interface.
+
+### Aba Stress test
+
+Essa aba executa um teste de carga real contra o backend e o HBase.
+
+Ela permite configurar:
+
+- Quantidade de sensores.
+- Quantidade de leituras por sensor.
+- Quantidade de requisições paralelas.
+
+Ao rodar o teste, a interface:
+
+1. Cria sensores de teste.
+2. Insere leituras em paralelo.
+3. Consulta estatísticas.
+4. Consulta alertas.
+5. Mede progresso, sucessos, falhas, requisições por segundo, tempo total, latência média, P50 e P95.
+6. Mostra um gráfico com latência por requisição, progresso acumulado e falhas.
+
+Também existe o botão **Limpar**, que tenta remover os sensores e leituras gerados pelo teste.
+
+Os campos são limitados pela interface para evitar uma carga acidentalmente muito alta.
+
+## O Que é o Apache HBase
+
+O Apache HBase é um banco de dados NoSQL distribuído, escalável, versionado e não relacional. Ele foi inspirado no Google Bigtable e é usado para armazenar grandes volumes de dados com leitura e escrita rápidas por chave.
+
+O HBase é indicado para cenários como:
+
+- Telemetria.
+- IoT.
+- Logs.
+- Séries temporais.
+- Grandes tabelas esparsas.
+- Dados com muitos atributos opcionais.
+- Consultas por chave ou por intervalo de chaves.
+
+Ele não é focado em `JOINs` relacionais complexos. A modelagem depende bastante da escolha da row key.
+
+## Tipo de Banco NoSQL
+
+O HBase é um banco NoSQL do tipo **wide-column**.
+
+Nesse modelo, os dados ficam em tabelas com:
+
+- Row key.
+- Famílias de colunas.
+- Qualificadores de coluna.
+- Timestamps.
+- Valores.
+
+Uma linha não precisa ter todas as colunas preenchidas. Isso permite armazenar dados esparsos de forma eficiente.
 
 ## Classificação CAP
 
-Na classificação CAP, o HBase é geralmente considerado CP: ele prioriza consistência e tolerância a partições. Em situações de falha, movimentação de regiões ou problemas de coordenação, a disponibilidade pode ser temporariamente reduzida para preservar a consistência dos dados.
+No contexto do teorema CAP, o HBase é geralmente explicado como **CP**:
 
-## Por Que HBase Para IoT?
+- **C - Consistency**: prioriza consistência, principalmente no nível de linha.
+- **P - Partition tolerance**: é feito para funcionar em ambiente distribuído.
+- **A - Availability**: em falhas ou reatribuições de regiões, a disponibilidade pode ser temporariamente reduzida para preservar consistência.
 
-Sistemas de IoT costumam gerar muitas leituras ao longo do tempo. Normalmente, as consultas mais importantes são:
-
-- Buscar um sensor pelo seu identificador.
-- Listar leituras de um sensor.
-- Encontrar a leitura mais recente.
-- Calcular estatísticas por sensor.
-- Identificar leituras com alerta.
-
-Esses padrões combinam bem com HBase, porque a chave de linha pode ser modelada de acordo com a forma como a aplicação consulta os dados.
+Essa classificação é uma forma didática de explicar o comportamento do HBase em cenários de falha.
 
 ## Modelo de Dados
 
+O projeto usa duas tabelas principais no HBase.
+
 ### Tabela `sensors`
 
-Chave de linha:
+Guarda os dados cadastrais dos sensores.
+
+Row key:
 
 ```text
 sensor_id
@@ -91,20 +195,32 @@ sensor_id
 Exemplo:
 
 ```text
-sensor-sp-01
+sensor-ui-01
 ```
 
 Famílias de colunas:
 
-- `info`: `name`, `sensor_type`, `status`
-- `location`: `latitude`, `longitude`, `city`, `country`
-- `device`: `model`, `firmware`
+- `info`
+- `location`
+- `device`
 
-Essa tabela armazena os dados cadastrais dos sensores. A chave `sensor_id` permite acesso direto a um sensor específico.
+Colunas usadas:
+
+- `info:name`
+- `info:sensor_type`
+- `info:status`
+- `location:latitude`
+- `location:longitude`
+- `location:city`
+- `location:country`
+- `device:model`
+- `device:firmware`
 
 ### Tabela `sensor_readings`
 
-Chave de linha:
+Guarda as leituras ambientais.
+
+Row key:
 
 ```text
 sensor_id#timestamp
@@ -113,129 +229,134 @@ sensor_id#timestamp
 Exemplo:
 
 ```text
-sensor-sp-01#2026-06-10T20:00:00Z
+sensor-ui-01#2026-06-10T20:00:00Z
 ```
 
 Famílias de colunas:
 
-- `metrics`: `temperature`, `humidity`, `pressure`
-- `device`: `battery`, `signal_strength`
-- `alert`: `level`, `message`
-- `time`: `timestamp`
+- `metrics`
+- `device`
+- `alert`
+- `time`
 
-Essa modelagem agrupa as leituras pelo sensor. Com isso, a API consegue listar as leituras de um sensor usando busca por prefixo, por exemplo `sensor-sp-01#`.
+Colunas usadas:
+
+- `metrics:temperature`
+- `metrics:humidity`
+- `metrics:pressure`
+- `device:battery`
+- `device:signal_strength`
+- `alert:level`
+- `alert:message`
+- `time:timestamp`
+
+A chave `sensor_id#timestamp` permite listar as leituras de um sensor usando busca por prefixo.
 
 ## Regras de Alerta
 
-A API calcula alertas quando uma leitura é inserida:
+Quando uma leitura é inserida, a API calcula um alerta automaticamente.
 
-- Temperatura alta: `temperature >= 35`
-- Umidade baixa: `humidity <= 30`
-- Bateria baixa: `battery < 20`
+Regras:
 
-O resultado é gravado no HBase na família `alert`:
+- Temperatura maior ou igual a `35`: temperatura alta.
+- Umidade menor ou igual a `30`: umidade baixa.
+- Bateria menor que `20`: bateria baixa.
+- Duas ou mais condições de alerta, temperatura maior ou igual a `40`, ou bateria menor que `10`: alerta crítico.
 
-- `alert:level`: `ok`, `warning` ou `critical`
-- `alert:message`: descrição do motivo do alerta
+O alerta é gravado no HBase nas colunas:
+
+- `alert:level`
+- `alert:message`
 
 ## Endpoints da API
 
-- `POST /sensors`: cria sensor.
-- `GET /sensors`: lista sensores.
-- `GET /sensors/{sensor_id}`: busca um sensor.
-- `PATCH /sensors/{sensor_id}`: atualiza um sensor.
-- `DELETE /sensors/{sensor_id}`: remove um sensor.
-- `POST /readings`: insere uma leitura.
-- `GET /readings/{sensor_id}`: lista leituras por sensor.
-- `GET /readings/{sensor_id}/latest`: retorna a leitura mais recente.
-- `DELETE /readings/{sensor_id}`: remove uma leitura pelo timestamp.
-- `GET /alerts`: lista leituras com alerta.
-- `GET /stats`: retorna estatísticas básicas.
+| Método | Endpoint | Função |
+| --- | --- | --- |
+| `GET` | `/health` | Verifica se a API está funcionando. |
+| `POST` | `/sensors` | Cria um sensor. |
+| `GET` | `/sensors` | Lista sensores. |
+| `GET` | `/sensors/{sensor_id}` | Busca sensor por ID. |
+| `PATCH` | `/sensors/{sensor_id}` | Atualiza sensor. |
+| `DELETE` | `/sensors/{sensor_id}` | Exclui sensor. |
+| `POST` | `/readings` | Insere uma leitura. |
+| `GET` | `/readings/{sensor_id}` | Lista leituras por sensor. |
+| `GET` | `/readings/{sensor_id}/latest` | Retorna a última leitura do sensor. |
+| `DELETE` | `/readings/{sensor_id}` | Exclui uma leitura pelo timestamp. |
+| `GET` | `/alerts` | Lista leituras com alerta. |
+| `GET` | `/stats` | Retorna estatísticas gerais ou por sensor. |
 
-## Simulador
+## Operações Similares aos Operadores do Enunciado
 
-Além da interface, o projeto possui o arquivo `simulator.py`, que gera leituras realistas para São Paulo, Rio de Janeiro e Brasília. Ele cria sensores automaticamente e envia leituras para a API.
+Como HBase não é MongoDB, os operadores não aparecem com os mesmos nomes. O projeto usa equivalentes.
 
-Uso opcional:
+| Operador pedido | Equivalente no projeto |
+| --- | --- |
+| `find` | `get` e `scan` no HBase, usados em buscas por sensor e listagens. |
+| `aggregate` | Endpoint `/stats`, que calcula estatísticas das leituras. |
+| `$match` | Filtro por `sensor_id`, prefixo de row key e alertas. |
+| `$project` | Retorno apenas dos campos necessários na API. |
+| `$lookup` | Validação do sensor na tabela `sensors` antes de inserir leitura em `sensor_readings`. |
+| `$unwind` | Leituras retornadas como lista de registros individuais. |
+| `$group` | Estatísticas gerais e por sensor no endpoint `/stats`. |
+| Arrays | Listas retornadas pela API, como sensores, leituras e alertas. |
+| Subdocumentos | Famílias de colunas, como `metrics`, `device`, `location` e `alert`. |
+
+## Inspeção Direta no HBase
+
+Com os containers rodando, é possível entrar no shell do HBase:
 
 ```bash
-python simulator.py --api http://localhost:8001 --cycles 5 --interval 1
+docker exec -it iot-hbase hbase shell
 ```
 
-A UI é o caminho recomendado para apresentação. O simulador é útil apenas para popular rapidamente o banco com mais dados.
+Comandos úteis:
 
-## Dados Reais Agregados
+```ruby
+list
+describe 'sensors'
+describe 'sensor_readings'
+scan 'sensors'
+scan 'sensor_readings', { LIMIT => 5 }
+get 'sensors', 'sensor-ui-01'
+```
 
-A aba “Dados reais” usa APIs gratuitas da Open-Meteo:
+Esses comandos mostram que os dados estão sendo persistidos no HBase.
 
-- Weather Forecast API: temperatura, umidade, pressão, vento e previsão horária.
-- Air Quality API: AQI europeu, PM10, PM2.5, CO, NO2, O3 e índice UV.
-- Elevation API: altitude do ponto consultado.
-- Geocoding API: transforma nomes de cidades em latitude, longitude, país, estado e fuso horário.
+## Simulador Opcional
 
-A cidade inicial é Juiz de Fora, Minas Gerais, mas a interface permite pesquisar e selecionar outros locais disponíveis na Geocoding API.
+Além da interface, existe um simulador em Python:
 
-## Operações Disponíveis Pela Interface
+```bash
+python simulator.py --cycles 5 --interval 1
+```
 
-A aba “Entrada/API” permite executar as principais operações disponíveis no backend:
-
-- Criar sensor: `POST /sensors`
-- Listar sensores: `GET /sensors`
-- Buscar sensor: `GET /sensors/{sensor_id}`
-- Atualizar sensor: `PATCH /sensors/{sensor_id}`
-- Excluir sensor: `DELETE /sensors/{sensor_id}`
-- Inserir leitura: `POST /readings`
-- Listar leituras por sensor: `GET /readings/{sensor_id}`
-- Buscar última leitura: `GET /readings/{sensor_id}/latest`
-- Excluir leitura: `DELETE /readings/{sensor_id}`
-- Listar alertas: `GET /alerts`
-- Consultar estatísticas gerais ou por sensor: `GET /stats`
-
-As respostas aparecem em formato JSON na própria interface, o que facilita a apresentação do comportamento da API e da persistência no HBase.
-
-## Tipos de Gráficos Usados
-
-Para dados ambientais e séries temporais de sensores, a interface usa:
-
-- Gráfico de linhas: bom para tendências contínuas, como temperatura, umidade, bateria e pressão ao longo do tempo.
-- Gráfico de área: útil para destacar volume, intensidade ou variação acumulada de uma métrica.
-- Gráfico composto: combina barras, linhas e áreas, permitindo comparar variáveis diferentes, como chuva, temperatura e material particulado.
-- Gráfico de dispersão: útil para observar correlação entre variáveis, por exemplo temperatura versus umidade.
-
-Essas escolhas seguem práticas comuns de visualização de séries temporais e dados ambientais: linhas para tendências, áreas para intensidade, gráficos compostos para múltiplas grandezas e dispersão para correlação/anomalias.
-
-## Equivalentes do HBase Para Operações Parecidas com MongoDB
-
-- `find`: no HBase, corresponde a `get` para buscar uma linha por chave ou `scan` para percorrer várias linhas.
-- `match`: pode ser feito com filtros de `scan` ou com filtragem na aplicação.
-- `project`: corresponde a selecionar colunas ou famílias de colunas específicas.
-- `group`: normalmente é feito na aplicação, em Spark, MapReduce ou Phoenix. Neste projeto, o endpoint `/stats` faz agregação na API.
-- `lookup`: corresponde a buscar linhas relacionadas em outra tabela. Neste projeto, a API valida o `sensor_id` na tabela `sensors` antes de gravar leituras em `sensor_readings`.
-
-## Mapeamento dos Requisitos
-
-- HBase como banco principal: sensores e leituras são persistidos no HBase.
-- Ambiente local com Docker: `docker-compose.yml` sobe HBase, API e frontend.
-- Tabelas obrigatórias: `sensors` e `sensor_readings`.
-- Chaves obrigatórias: `sensor_id` e `sensor_id#timestamp`.
-- Famílias de colunas exigidas: `info`, `location`, `metrics`, `device`, `alert` e `time`.
-- CRUD de sensores: implementado na API e disponível pela interface.
-- Operações de leituras: inserir, listar por sensor, buscar a última leitura e excluir.
-- Sensores simulados: disponíveis pela interface, com execução contínua, e pelo arquivo `simulator.py`.
-- Dados reais: a interface agrega clima, qualidade do ar e altitude de Juiz de Fora por APIs gratuitas.
-- Alertas: temperatura alta, umidade baixa e bateria baixa são avaliadas e salvas.
-- Estatísticas: total de leituras, temperatura média, mínima, máxima e leituras recentes.
-- Documentação: este README explica HBase, tipo NoSQL, CAP, ecossistema, modelo das tabelas, chaves, execução e equivalentes de operações do MongoDB.
+Ele cria sensores e envia leituras para a API local em `http://localhost:8001`.
 
 ## Estrutura do Projeto
 
 ```text
 .
 ├── app/                  # Backend FastAPI
-├── frontend/             # Interface React com shadcn/ui
-├── scripts/              # Scripts de criação das tabelas
-├── docker-compose.yml    # HBase, API e frontend
-├── Dockerfile            # Imagem da API
-├── requirements.txt      # Dependências Python
-└── simulator.py          # Simulador opcional de sensores
+│   ├── hbase_client.py    # Conexão, tabelas, conversões e alertas
+│   ├── main.py            # Endpoints da API
+│   └── models.py          # Modelos Pydantic
+├── frontend/              # Frontend Next.js
+│   ├── src/app/            # App Router do Next.js
+│   ├── src/components/     # Componentes da interface
+│   └── src/lib/            # Funções auxiliares
+├── scripts/               # Script de criação das tabelas
+├── docker-compose.yml     # HBase, API e frontend
+├── Dockerfile             # Imagem da API
+├── requirements.txt       # Dependências Python
+└── simulator.py           # Simulador opcional
 ```
+
+## Referências
+
+- Apache HBase: <https://hbase.apache.org/>
+- Apache HBase Reference Guide: <https://hbase.apache.org/book.html>
+- Apache HBase Data Model: <https://hbase.apache.org/docs/datamodel/>
+- Apache HBase ACID Semantics: <https://hbase.apache.org/acid-semantics/>
+- Apache HBase Shell: <https://hbase.apache.org/docs/shell/>
+- Apache HBase Architecture: <https://hbase.apache.org/docs/architecture/>
+- Next.js: <https://nextjs.org/docs>

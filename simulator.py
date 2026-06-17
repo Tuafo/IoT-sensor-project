@@ -44,7 +44,7 @@ LOCATIONS = [
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate simulated IoT readings and send them to the API.")
-    parser.add_argument("--api", default="http://localhost:8000", help="Base URL for the FastAPI service")
+    parser.add_argument("--api", default="http://localhost:8001", help="Base URL for the FastAPI service")
     parser.add_argument("--cycles", type=int, default=5, help="Number of reading batches to send")
     parser.add_argument("--interval", type=float, default=1.0, help="Seconds between batches")
     args = parser.parse_args()

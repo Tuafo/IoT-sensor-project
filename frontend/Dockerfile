@@ -7,7 +7,7 @@ RUN npm install
 
 COPY . .
 
-ENV VITE_API_BASE_URL=http://localhost:8001
+ENV NEXT_PUBLIC_API_BASE_URL=http://localhost:8001
 
 EXPOSE 5174
 

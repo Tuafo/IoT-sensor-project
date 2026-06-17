@@ -1,15 +1,10 @@
+"use client";
+
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  Activity,
-  AlertTriangle,
-  BarChart3,
-  Battery,
   CloudSun,
   Database,
   Gauge,
-  Globe2,
-  Pause,
-  Play,
   Plus,
   RefreshCw,
   Save,
@@ -21,15 +16,11 @@ import {
 } from "lucide-react";
 import {
   Area,
-  AreaChart,
   Bar,
   CartesianGrid,
   ComposedChart,
   Line,
-  LineChart,
   ResponsiveContainer,
-  Scatter,
-  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -41,8 +32,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StressTestPanel } from "@/components/stress-test-panel";
+import { WorkOverview } from "@/components/work-overview";
+import { API_BASE, apiRequest } from "@/lib/api";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8001";
 const DEFAULT_LOCATION: LocationResult = {
   id: 3459505,
   name: "Juiz de Fora",
@@ -87,16 +80,6 @@ type ApiStats = {
   min_temperature: number | null;
   max_temperature: number | null;
   latest_readings: ApiReading[];
-};
-
-type MockReading = {
-  time: string;
-  temperature: number;
-  humidity: number;
-  pressure: number;
-  battery: number;
-  signal: number;
-  alert: "ok" | "warning" | "critical";
 };
 
 type LocationResult = {
@@ -180,9 +163,8 @@ const initialReading = {
 };
 
 function App() {
-  const [mockReadings, setMockReadings] = useState<MockReading[]>(() => seedMockReadings());
-  const [running, setRunning] = useState(false);
-
+  const [activeTab, setActiveTab] = useState("work");
+  const [readyTab, setReadyTab] = useState("work");
   const [locationQuery, setLocationQuery] = useState("Juiz de Fora");
   const [locations, setLocations] = useState<LocationResult[]>([DEFAULT_LOCATION]);
   const [selectedLocation, setSelectedLocation] = useState<LocationResult>(DEFAULT_LOCATION);
@@ -196,31 +178,18 @@ function App() {
   const [apiOutput, setApiOutput] = useState("Use os botões para executar operações da API.");
 
   useEffect(() => {
-    if (!running) return;
-    const id = window.setInterval(() => {
-      setMockReadings((current) => [...current.slice(-35), createMockReading(current.at(-1))]);
-    }, 1400);
-    return () => window.clearInterval(id);
-  }, [running]);
-
-  useEffect(() => {
     void loadRealData(DEFAULT_LOCATION);
   }, []);
 
-  const latestMock = mockReadings.at(-1);
-  const mockAlerts = mockReadings.filter((reading) => reading.alert !== "ok").length;
+  useEffect(() => {
+    const timer = window.setTimeout(() => setReadyTab(activeTab), 90);
+    return () => window.clearTimeout(timer);
+  }, [activeTab]);
+
   const realChart = useMemo(() => buildRealChart(realData), [realData]);
 
   async function request<T>(path: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(`${API_BASE}${path}`, {
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      ...options,
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || response.statusText);
-    }
-    return response.json() as Promise<T>;
+    return apiRequest<T>(path, options);
   }
 
   async function runApiOperation<T>(label: string, action: () => Promise<T>) {
@@ -300,7 +269,7 @@ function App() {
           <div>
             <div className="flex items-center gap-2 text-sm font-medium text-primary">
               <Database className="size-4" />
-              Apache HBase + React + shadcn/ui
+              Apache HBase + Next.js + shadcn/ui
             </div>
             <h1 className="mt-1 text-2xl font-semibold tracking-normal text-foreground">Monitoramento Ambiental IoT</h1>
           </div>
@@ -309,71 +278,16 @@ function App() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
-        <Tabs defaultValue="mock">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="flex h-auto flex-wrap justify-start">
-            <TabsTrigger value="mock">Mock data</TabsTrigger>
+            <TabsTrigger value="work">Trabalho</TabsTrigger>
             <TabsTrigger value="real">Dados reais</TabsTrigger>
             <TabsTrigger value="entry">Entrada/API</TabsTrigger>
-            <TabsTrigger value="charts">Gráficos</TabsTrigger>
+            <TabsTrigger value="stress">Stress test</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="mock">
-            <div className="grid gap-4 lg:grid-cols-4">
-              <Metric title="Temperatura" value={`${latestMock?.temperature.toFixed(1) ?? "-"} C`} icon={<Thermometer />} />
-              <Metric title="Umidade" value={`${latestMock?.humidity.toFixed(0) ?? "-"}%`} icon={<CloudSun />} />
-              <Metric title="Bateria" value={`${latestMock?.battery.toFixed(0) ?? "-"}%`} icon={<Battery />} />
-              <Metric title="Alertas" value={mockAlerts.toString()} icon={<AlertTriangle />} />
-            </div>
-
-            <div className="mt-4 grid gap-4 lg:grid-cols-[1.35fr_0.85fr]">
-              <Card>
-                <CardHeader className="flex-row items-start justify-between gap-4">
-                  <div>
-                    <CardTitle>Simulação contínua</CardTitle>
-                    <CardDescription>Dados ambientais mockados, atualizados no navegador.</CardDescription>
-                  </div>
-                  <Button onClick={() => setRunning((value) => !value)} variant={running ? "secondary" : "default"}>
-                    {running ? <Pause /> : <Play />}
-                    {running ? "Pausar" : "Rodar contínuo"}
-                  </Button>
-                </CardHeader>
-                <CardContent className="h-[360px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={mockReadings}>
-                      <CartesianGrid stroke="hsl(218 28% 22%)" strokeDasharray="3 3" />
-                      <XAxis dataKey="time" stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
-                      <YAxis stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
-                      <Tooltip contentStyle={tooltipStyle} />
-                      <Line type="monotone" dataKey="temperature" stroke="hsl(190 95% 48%)" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="humidity" stroke="hsl(166 76% 58%)" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="battery" stroke="hsl(43 92% 58%)" strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Leituras mock recentes</CardTitle>
-                  <CardDescription>Últimos eventos simulados para apresentação.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {mockReadings.slice(-8).reverse().map((reading) => (
-                    <div key={`${reading.time}-${reading.signal}`} className="rounded-md border bg-card/70 px-3 py-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{reading.time}</span>
-                        <AlertBadge level={reading.alert} />
-                      </div>
-                      <div className="mt-1 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
-                        <span>{reading.temperature.toFixed(1)} C</span>
-                        <span>{reading.humidity.toFixed(0)}%</span>
-                        <span>{reading.battery.toFixed(0)}%</span>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
+          <TabsContent value="work">
+            <WorkOverview />
           </TabsContent>
 
           <TabsContent value="real">
@@ -425,18 +339,20 @@ function App() {
                     Atualizar
                   </Button>
                 </CardHeader>
-                <CardContent className="h-[390px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={realChart}>
-                      <CartesianGrid stroke="hsl(218 28% 22%)" strokeDasharray="3 3" />
-                      <XAxis dataKey="time" stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
-                      <YAxis stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
-                      <Tooltip contentStyle={tooltipStyle} />
-                      <Bar dataKey="rain" fill="hsl(217 91% 60% / 0.35)" />
-                      <Area type="monotone" dataKey="pm25" stroke="hsl(43 92% 58%)" fill="hsl(43 92% 58% / 0.14)" />
-                      <Line type="monotone" dataKey="temperature" stroke="hsl(190 95% 48%)" strokeWidth={2} dot={false} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                <CardContent className="h-[390px] min-h-[390px] min-w-0">
+                  {activeTab === "real" && readyTab === "real" ? (
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                      <ComposedChart data={realChart}>
+                        <CartesianGrid stroke="hsl(218 28% 22%)" strokeDasharray="3 3" />
+                        <XAxis dataKey="time" stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
+                        <YAxis stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
+                        <Tooltip contentStyle={tooltipStyle} />
+                        <Bar dataKey="rain" fill="hsl(217 91% 60% / 0.35)" />
+                        <Area type="monotone" dataKey="pm25" stroke="hsl(43 92% 58%)" fill="hsl(43 92% 58% / 0.14)" />
+                        <Line type="monotone" dataKey="temperature" stroke="hsl(190 95% 48%)" strokeWidth={2} dot={false} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  ) : null}
                 </CardContent>
               </Card>
             </div>
@@ -524,6 +440,7 @@ function App() {
                       <Field label="Timestamp para deletar leitura" value={deleteTimestamp} onChange={setDeleteTimestamp} />
                     </div>
                     <div className="grid gap-2 md:grid-cols-3">
+                      <Button variant="outline" onClick={() => void runApiOperation("GET /health", () => request("/health"))}>Health</Button>
                       <Button variant="outline" onClick={() => void runApiOperation("GET /readings/{sensor_id}", () => request<ApiReading[]>(`/readings/${apiSensorId}`))}>Listar leituras</Button>
                       <Button variant="outline" onClick={() => void runApiOperation("GET /readings/{sensor_id}/latest", () => request<ApiReading>(`/readings/${apiSensorId}/latest`))}>Última leitura</Button>
                       <Button variant="outline" onClick={() => void runApiOperation("GET /alerts", () => request<ApiReading[]>("/alerts"))}>Alertas</Button>
@@ -549,49 +466,8 @@ function App() {
             </div>
           </TabsContent>
 
-          <TabsContent value="charts">
-            <div className="grid gap-4 lg:grid-cols-3">
-              <ChartNote title="Linha temporal" body="Melhor para tendências contínuas de temperatura, umidade, pressão e bateria ao longo do tempo." />
-              <ChartNote title="Composto" body="Combina barras, áreas e linhas para comparar variáveis com unidades diferentes, como chuva, PM2.5 e temperatura." />
-              <ChartNote title="Dispersão" body="Ajuda a observar correlação, por exemplo temperatura contra umidade, e destacar pontos anômalos." />
-            </div>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Área: pressão e bateria</CardTitle>
-                  <CardDescription>Útil para comparar estabilidade operacional do sensor.</CardDescription>
-                </CardHeader>
-                <CardContent className="h-[320px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={mockReadings}>
-                      <CartesianGrid stroke="hsl(218 28% 22%)" strokeDasharray="3 3" />
-                      <XAxis dataKey="time" stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
-                      <YAxis stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
-                      <Tooltip contentStyle={tooltipStyle} />
-                      <Area type="monotone" dataKey="battery" stroke="hsl(43 92% 58%)" fill="hsl(43 92% 58% / 0.16)" />
-                      <Area type="monotone" dataKey="pressure" stroke="hsl(190 95% 48%)" fill="hsl(190 95% 48% / 0.10)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Dispersão: temperatura x umidade</CardTitle>
-                  <CardDescription>Ajuda a visualizar relação entre variáveis ambientais.</CardDescription>
-                </CardHeader>
-                <CardContent className="h-[320px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart>
-                      <CartesianGrid stroke="hsl(218 28% 22%)" strokeDasharray="3 3" />
-                      <XAxis dataKey="temperature" name="Temperatura" stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
-                      <YAxis dataKey="humidity" name="Umidade" stroke="hsl(215 20% 68%)" tick={{ fontSize: 12 }} />
-                      <Tooltip contentStyle={tooltipStyle} />
-                      <Scatter data={mockReadings} fill="hsl(166 76% 58%)" />
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
+          <TabsContent value="stress">
+            <StressTestPanel isActive={activeTab === "stress" && readyTab === "stress"} />
           </TabsContent>
         </Tabs>
       </section>
@@ -627,29 +503,6 @@ async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Falha ao buscar ${url}`);
   return response.json() as Promise<T>;
-}
-
-function seedMockReadings() {
-  return Array.from({ length: 24 }, (_, index) => createMockReading(undefined, index));
-}
-
-function createMockReading(previous?: MockReading, index?: number): MockReading {
-  const baseTemp = previous?.temperature ?? 25.5;
-  const baseHumidity = previous?.humidity ?? 58;
-  const battery = Math.max(8, (previous?.battery ?? 96) - Math.random() * 1.6);
-  const temperature = clamp(baseTemp + random(-1.1, 1.4), 18, 39);
-  const humidity = clamp(baseHumidity + random(-4, 3), 20, 88);
-  const alert = temperature >= 35 || humidity <= 30 || battery < 20 ? (battery < 12 ? "critical" : "warning") : "ok";
-  const date = new Date(Date.now() - ((24 - (index ?? 23)) * 90_000));
-  return {
-    time: date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-    temperature,
-    humidity,
-    pressure: 1010 + random(-5, 5),
-    battery,
-    signal: Math.round(random(-88, -42)),
-    alert,
-  };
 }
 
 function buildRealChart(realData: RealData | null) {
@@ -699,36 +552,8 @@ function InfoCard({ title, value }: { title: string; value: string }) {
   );
 }
 
-function ChartNote({ title, body }: { title: string; body: string }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 font-medium">
-          <BarChart3 className="size-4 text-primary" />
-          {title}
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground">{body}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function AlertBadge({ level }: { level: MockReading["alert"] }) {
-  if (level === "critical") return <Badge variant="destructive">critical</Badge>;
-  if (level === "warning") return <Badge variant="warning">warning</Badge>;
-  return <Badge variant="ok">ok</Badge>;
-}
-
 function formatLocation(location: LocationResult) {
   return [location.name, location.admin1, location.country].filter(Boolean).join(", ");
-}
-
-function random(min: number, max: number) {
-  return min + Math.random() * (max - min);
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }
 
 export default App;
