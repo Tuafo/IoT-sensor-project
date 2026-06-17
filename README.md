@@ -1,3 +1,8 @@
+# Integrantes:
+- Thiago Goulart
+- Alexander
+- Arthur Villela
+
 # Monitoramento Ambiental IoT com Apache HBase
 
 Este projeto é uma aplicação acadêmica de banco de dados NoSQL usando **Apache HBase** como banco principal. A ideia é simular um sistema de monitoramento ambiental com sensores IoT, onde cada sensor envia leituras de temperatura, umidade, pressão, bateria e sinal.
